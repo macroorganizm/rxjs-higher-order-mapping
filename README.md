@@ -35,4 +35,75 @@
 * GitHub репозиторий (с примерами кода)
 * Выводы
 
-Также обратите внимание, что эта статья это часть постоянной [серии по RxJS](https://blog.angular-university.io/tag/rxjs). Короче - погнали
+Также обратите внимание, что эта статья это часть постоянной [серии по RxJS](https://blog.angular-university.io/tag/rxjs). Короче - погнали!
+
+### RxJS Map оператор ###
+
+Давайте для начала разберемся что эти *mapping* операторы делают в-общем.
+
+Из имен этих операторов следует, что они выполняют какое-то отображение(mapping), но что и на что они *мапят*? Давайте сначала взглянем на диаграмму оператора RxJS Map:
+![img](https://s3-us-west-1.amazonaws.com/angular-university/blog-images/rxjs-map-operators/01-rxjs-map.png)
+
+#### Как работает базовый Map оператор ####
+С оператором *map* мы можем взять входной поток(со значениями 1, 2, 3) и из него мы можем создать исходящий поток(со значениями 10, 20, 30).
+
+Значения исхлдящего потока(внизу на диаграмме) получены посредством применения функции к значениям, взятым из входного потока: эта функция попросу умножает эти значения на 10.
+
+Таким образом *map* оператор это про *маппинг значений* из входного Observable. Ниже пример того как можно использовать это для обработки HTTP запроса:
+
+```
+const http$ : Observable<Course[]> = this.http.get('/api/courses');
+
+http$
+    .pipe(
+        tap(() => console.log('HTTP request executed')),
+        map(res => Object.values(res['payload']))
+    )
+    .subscribe(
+        courses => console.log("courses", courses)
+    );
+```
+  В этом примере мы создаем один HTTP Observable, который делает запрос к серверу и мы подписываемся на него. Observable порождает значение с ответом от сервера(в JSON формате).
+  В этом случае в HTTP-ответе, данные обернуты всвойство *payload*, поэтому, чтобы получить эти данные мы применяем оператор RxJS map. *Функция-маппер*  получает JSON-ответ и извлекает значение свойства *payload*.
+  Теперь, когда мы рассмотрели базовый *маппинг*, давайте поговорим о *маппинге высшего порядка*
+  
+### Что такое Higher-Order Observable Mapping ###
+В *Higher-Order Observable Mapping*, в отличие от *маппинга* обычного значения(напр. 1) в другое значение(10), мы мапим значение в Observable!
+
+  Результат - higher-order Observable. Это просто Observable, как и любой другой, но его значения сами являются Observable'ми на котоые можно подписываться.
+
+  Это выглядит чрезмерно переусложненным, но на самом деле подобный тип маппинга происходит повсеместно. Давайте рассмотрим приактический пример подобного *маппинга*. Для примера возьмем некую пеактивную форму Angular, которая порождает валидные значения формы постоянно в  виде Observable:
+```
+@Component({
+    selector: 'course-dialog',
+    templateUrl: './course-dialog.component.html'
+})
+export class CourseDialogComponent implements AfterViewInit {
+
+    form: FormGroup;
+    course:Course;
+
+    @ViewChild('saveButton') saveButton: ElementRef;
+
+    constructor(
+        private fb: FormBuilder,
+        private dialogRef: MatDialogRef<CourseDialogComponent>,
+        @Inject(MAT_DIALOG_DATA) course:Course) {
+
+        this.course = course;
+
+        this.form = fb.group({
+            description: [course.description, 
+                          Validators.required],
+            category: [course.category, Validators.required],
+            releasedAt: [moment(), Validators.required],
+            longDescription: [course.longDescription,
+                              Validators.required]
+        });
+    }
+}
+```
+  Реактивная форма предоставляет Observable `this.form.valueChanges`, который порождает последнее значение формы, после действий пользователя. Это будет наш *исходный* Observable.
+  Наща цель - сохранить некоторые из этих изменеий, которые происходят постоянно, в качестве черновика. Таким образом данные будут постоянно сохраняться в процессе заполнения пользователем формы, что даст возможность избежать потери данных при случайной перезагрузке формы.
+  
+#### Почему Higher-Order Observables? ####
